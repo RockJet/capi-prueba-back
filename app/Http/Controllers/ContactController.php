@@ -5,17 +5,15 @@ use App\Models\Contact;
 use App\Models\Phone;
 use App\Models\Email;
 use App\Models\Address;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
     public function index(){
-        $contacts = Contact::get();
-
-        $contacts->phones()->get();
-        $contacts->emails()->get();
-        $contacts->addresses()->get();
+        $contacts = Contact::with('phones', 'emails', 'addresses')->get();
 
         return response()->json($contacts);
     }
@@ -36,14 +34,34 @@ class ContactController extends Controller
         else {
 
             try {
-                $contact = new Contact;
-                $contact->name = $request->name;
-                $contact->updated_at = now();
-                $contact->save();
+                DB::transaction(function () use ($request) {
+                    $contact = new Contact;
+                    $contact->name = $request->name;
+                    $contact->updated_at = now();
+                    $contact->save();
+
+                    $phones = [];
+                    $emails = [];
+                    $addresses = [];
+                    foreach($request->phones as $phone){
+                        $phones[] = new Phone(['phone' => $phone]);
+                    }
+                    foreach($request->emails as $email){
+                        $emails[] = new Email(['email' => $email]);
+                    }
+                    foreach($request->addresses as $address){
+                        $addresses[] = new Address(['address' => $address]);
+                    }
+
+                    $contact->phones()->saveMany($phones);
+                    $contact->emails()->saveMany($emails);
+                    $contact->addresses()->saveMany($addresses);
+                });
 
                 return response()->json("El contacto ha sido actualizado correctamente");
+
             } catch (ModelNotFoundException $e) {
-                return back()->withErrors('Problemas al guardar el contacto, intenta de nuevo.');
+                return response()->json('Problemas al guardar el contacto, intenta de nuevo.');
             }
         }
     }
