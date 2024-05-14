@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
         Address::truncate();
         Schema::enableForeignKeyConstraints();
 
-        Contact::factory()->count(5)->create()->each(function ($contact) {
+        Contact::factory()->count(100)->create()->each(function ($contact) {
             $contact->phones()->saveMany(Phone::factory()->count(2)->make());
             $contact->emails()->saveMany(Email::factory()->count(2)->make());
             $contact->addresses()->saveMany(Address::factory()->count(2)->make());
