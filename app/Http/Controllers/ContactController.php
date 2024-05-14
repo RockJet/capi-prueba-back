@@ -30,7 +30,7 @@ class ContactController extends Controller
             $query->where('address', 'like', '%' . $searchQuery . '%');
         })
         ->orWhere('name', 'like', '%' . $searchQuery . '%')
-        ->paginate(10);
+        ->paginate(100);
 
         // Transform the retrieved data to include only the desired fields
         $transformedContacts = $contacts->map(function ($contact) {
