@@ -19,7 +19,7 @@ return new class extends Migration
         });
 
         Schema::table('emails', function (Blueprint $table) {
-            $table->foreign('contact_id')->nullable()->references('id')->on('contacts');
+            $table->foreign('contact_id')->nullable()->references('id')->on('contacts')->onDelete('cascade');;
         });
     }
 
