@@ -12,9 +12,23 @@ use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
-    public function index(){
-        $contacts = Contact::with('phones', 'emails', 'addresses')->get();
+    public function index(Request $request){
+    // Get the search query parameter from the request
+    $searchQuery = $request->query('search');
 
+    // Query contacts where any related model (phones, emails, addresses) has a field containing the search query
+    $contacts = Contact::with('phones', 'emails', 'addresses')
+        ->whereHas('phones', function ($query) use ($searchQuery) {
+            $query->where('phone', 'like', '%' . $searchQuery . '%');
+        })
+        ->orWhereHas('emails', function ($query) use ($searchQuery) {
+            $query->where('email', 'like', '%' . $searchQuery . '%');
+        })
+        ->orWhereHas('addresses', function ($query) use ($searchQuery) {
+            $query->where('address', 'like', '%' . $searchQuery . '%');
+        })
+        ->orWhere('name', 'like', '%' . $searchQuery . '%')
+        ->paginate(10);
         return response()->json($contacts);
     }
 
@@ -40,17 +54,19 @@ class ContactController extends Controller
                     $contact->updated_at = now();
                     $contact->save();
 
+                    // Collecting all phone numbers, emails and addresses. Adding them
+                    // to 'Contact' ONLY if not null
                     $phones = [];
                     $emails = [];
                     $addresses = [];
                     foreach($request->phones as $phone){
-                        $phones[] = new Phone(['phone' => $phone]);
+                        if($phone) $phones[] = new Phone(['phone' => $phone]);
                     }
                     foreach($request->emails as $email){
-                        $emails[] = new Email(['email' => $email]);
+                        if($email) $emails[] = new Email(['email' => $email]);
                     }
                     foreach($request->addresses as $address){
-                        $addresses[] = new Address(['address' => $address]);
+                        if($address) $addresses[] = new Address(['address' => $address]);
                     }
 
                     $contact->phones()->saveMany($phones);
@@ -66,7 +82,15 @@ class ContactController extends Controller
         }
     }
 
-    public function update(Request $request){
+    public function edit($id){
+        $contact = Contact::findOrFail($id);
+
+        $contact = Contact::with('phones', 'emails', 'addresses')->get();
+
+        return response()->json($contact);
+    }
+
+    public function update(Request $request, $id){
         $customMessages = [
             "required" => ":attribute es un campo necesario, favor de ingresar información.",
             "max" => "Favor de colocar máximo 20 caracteres",
@@ -82,10 +106,35 @@ class ContactController extends Controller
         else {
 
             try {
-                $contact = Contact::where('id', $id)->first();
-                $contact->name = $request->name;
-                $contact->updated_at = now();
-                $contact->save();
+                DB::transaction(function () use ($request) {
+                    $contact = Contact::findOrFail($request->id);
+                    $contact->name = $request->name;
+                    $contact->updated_at = now();
+                    $contact->save();
+
+                    // Collecting all phone numbers, emails and addresses. Adding them
+                    // to 'Contact' ONLY if not null
+                    $contact->phones()->delete();
+                    $contact->emails()->delete();
+                    $contact->addresses()->delete();
+                    $phones = [];
+                    $emails = [];
+                    $addresses = [];
+
+                    foreach($request->phones as $phone){
+                        if($phone) $phones[] = new Phone(['phone' => $phone]);
+                    }
+                    foreach($request->emails as $email){
+                        if($email) $emails[] = new Email(['email' => $email]);
+                    }
+                    foreach($request->addresses as $address){
+                        if($address) $addresses[] = new Address(['address' => $address]);
+                    }
+
+                    $contact->phones()->saveMany($phones);
+                    $contact->emails()->saveMany($emails);
+                    $contact->addresses()->saveMany($addresses);
+                });
 
                 return response()->json("El contacto ha sido actualizado correctamente");
             } catch (ModelNotFoundException $e) {

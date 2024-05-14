@@ -10,6 +10,6 @@ Route::get('/', [ContactController::class, 'index']);
 Route::group(['prefix' => '/contacts'], function () {
     Route::post('/create', [ContactController::class, 'create']);
     Route::get('/edit/{id}', [ContactController::class, 'edit']);
-    Route::post('/update', [ContactController::class, 'update']);
+    Route::post('/update/{id}', [ContactController::class, 'update']);
     Route::get('/delete/{id}', [ContactController::class, 'delete']);
 });
